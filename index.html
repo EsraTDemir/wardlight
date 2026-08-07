@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wardlight — job posting verification</title>
+<link rel="canonical" href="https://wardlight.app/">
+<meta property="og:title" content="Wardlight — job posting verification">
+<meta property="og:description" content="We watch job postings over time and flag ghost jobs, reposts, and scam patterns — every verdict backed by a documented evidence trail. Scam warnings are free, forever.">
+<meta property="og:url" content="https://wardlight.app/">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="description" content="Wardlight watches job postings over time and flags ghost jobs, reposts, and scam patterns — every verdict backed by a documented evidence trail. Scam warnings are free, forever.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,650&family=Public+Sans:wght@400;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#EDF1F4;      /* cool archival ledger paper */
+    --card:#F7F9FB;
+    --ink:#17242E;        /* blue-black record ink */
+    --faded:#5A6B77;
+    --rule:#C7D1D9;
+    --stamp:#B3382C;      /* verdict stamp red — used only where verdicts live */
+    --verified:#2F6B50;   /* ledger green */
+    --maxw:880px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  @media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}}
+  body{
+    background:var(--paper);color:var(--ink);
+    font-family:"Public Sans",system-ui,sans-serif;
+    font-size:17px;line-height:1.65;
+    background-image:linear-gradient(var(--rule) 1px, transparent 1px);
+    background-size:100% 3.2rem;
+  }
+  body::before{
+    content:"";position:fixed;top:-160px;left:50%;transform:translateX(-50%);
+    width:min(760px,96vw);height:420px;pointer-events:none;z-index:0;
+    background:radial-gradient(ellipse at center, rgba(243,233,176,.55), rgba(243,233,176,0) 70%);
+  }
+  main,header{position:relative;z-index:1}
+  .sheet{max-width:var(--maxw);margin:0 auto;padding:0 24px}
+  a{color:var(--ink)}
+  a:focus-visible,button:focus-visible{outline:3px solid var(--verified);outline-offset:2px}
+
+  /* ---- masthead ---- */
+  header{border-bottom:2px solid var(--ink);background:var(--paper)}
+  .mast{display:flex;justify-content:space-between;align-items:baseline;padding:18px 0}
+  .wordmark{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:1.05rem;letter-spacing:.04em}
+  .wordmark span{color:var(--verified)}
+  .descriptor{font-family:"Public Sans",sans-serif;font-size:.78rem;color:var(--faded);letter-spacing:.02em;margin-top:2px}
+  .mast nav a{font-family:"JetBrains Mono",monospace;font-size:.8rem;text-decoration:none;margin-left:18px;color:var(--faded)}
+  .mast nav a:hover{color:var(--ink)}
+
+  /* ---- exhibits ---- */
+  .exhibit{padding:64px 0 8px}
+  .tab{font-family:"JetBrains Mono",monospace;font-size:.75rem;letter-spacing:.14em;color:var(--faded);
+       border:1px solid var(--rule);display:inline-block;padding:4px 10px;background:var(--card);margin-bottom:20px}
+  h1,h2{font-family:"Fraunces",serif;font-weight:650;letter-spacing:-.01em}
+  h1{font-size:clamp(2.1rem,5.4vw,3.4rem);line-height:1.12;max-width:16ch}
+  h2{font-size:clamp(1.5rem,3.4vw,2.1rem);margin-bottom:14px}
+  .lede{font-size:1.12rem;max-width:58ch;margin-top:18px;color:var(--ink)}
+  .lede em{font-style:normal;background:linear-gradient(transparent 62%, #f3e9b0 62%)}
+
+  /* ---- the dossier (signature element) ---- */
+  .dossier{background:var(--card);border:1px solid var(--ink);margin:40px 0 8px;position:relative;
+           box-shadow:6px 6px 0 rgba(23,36,46,.12)}
+  .dossier-head{display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid var(--rule);
+                padding:14px 18px;font-family:"JetBrains Mono",monospace;font-size:.8rem;color:var(--faded);flex-wrap:wrap}
+  .ledger{list-style:none;padding:8px 0}
+  .ledger li{display:grid;grid-template-columns:9ch 1fr;gap:14px;padding:9px 18px;
+             font-family:"JetBrains Mono",monospace;font-size:.86rem;border-bottom:1px dashed var(--rule)}
+  .ledger li:last-child{border-bottom:0}
+  .ledger .d{color:var(--faded)}
+  .flag{color:var(--stamp);font-weight:700}
+  .stamp{position:absolute;right:16px;bottom:14px;transform:rotate(-7deg);
+         font-family:"JetBrains Mono",monospace;font-weight:700;letter-spacing:.18em;
+         color:var(--stamp);border:3px double var(--stamp);padding:6px 14px;background:rgba(247,249,251,.85)}
+  .dossier-note{font-size:.85rem;color:var(--faded);margin:10px 2px 0;font-family:"JetBrains Mono",monospace}
+
+  /* ---- method ---- */
+  .steps{counter-reset:s;margin-top:10px}
+  .step{display:grid;grid-template-columns:56px 1fr;gap:18px;padding:22px 0;border-bottom:1px solid var(--rule)}
+  .step:last-child{border-bottom:0}
+  .step::before{counter-increment:s;content:counter(s,decimal-leading-zero);
+                font-family:"JetBrains Mono",monospace;font-size:1.5rem;color:var(--faded)}
+  .step h3{font-family:"Fraunces",serif;font-size:1.15rem;margin-bottom:4px}
+  .step p{max-width:60ch;color:var(--ink)}
+
+  /* ---- pledge ---- */
+  .pledge{border:2px solid var(--verified);background:var(--card);padding:26px 26px 22px;margin-top:26px}
+  .pledge strong{font-family:"Fraunces",serif;font-size:1.25rem;display:block;margin-bottom:6px;color:var(--verified)}
+
+  /* ---- pricing ---- */
+  .plans{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-top:26px}
+  .plan{background:var(--card);border:1px solid var(--ink);padding:26px}
+  .plan.pro{box-shadow:6px 6px 0 rgba(23,36,46,.12)}
+  .plan h3{font-family:"JetBrains Mono",monospace;font-size:.85rem;letter-spacing:.14em;color:var(--faded)}
+  .price{font-family:"Fraunces",serif;font-size:2.1rem;font-weight:650;margin:8px 0 2px}
+  .price small{font-family:"Public Sans",sans-serif;font-size:.95rem;font-weight:400;color:var(--faded)}
+  .plan ul{list-style:none;margin:16px 0 0}
+  .plan li{padding:7px 0;border-top:1px dashed var(--rule);font-size:.97rem}
+  .plan li.free-line{color:var(--verified);font-weight:600}
+  .founding{font-family:"JetBrains Mono",monospace;font-size:.78rem;color:var(--stamp);margin-top:14px}
+  .grad{margin-top:26px;border-left:4px solid var(--ink);padding:4px 0 4px 18px;max-width:62ch}
+  .grad b{font-family:"Fraunces",serif}
+
+  /* ---- early access ---- */
+  .early{background:var(--ink);color:var(--paper);padding:34px 28px;margin-top:30px}
+  .early h2{color:var(--paper)}
+  .early p{max-width:60ch;color:#C9D5DE}
+  .early a{display:inline-block;margin-top:16px;font-family:"JetBrains Mono",monospace;
+           color:var(--paper);border:1px solid var(--paper);padding:10px 18px;text-decoration:none}
+  .early a:hover{background:var(--paper);color:var(--ink)}
+
+  /* ---- legal ---- */
+  .legal{font-size:.92rem;color:var(--ink)}
+  .legal h3{font-family:"Fraunces",serif;font-size:1.05rem;margin:22px 0 6px}
+  .legal p,.legal li{max-width:72ch;margin-bottom:10px;color:#33434F}
+  .legal ul{padding-left:20px}
+  .updated{font-family:"JetBrains Mono",monospace;font-size:.75rem;color:var(--faded)}
+
+  footer{border-top:2px solid var(--ink);margin-top:70px;padding:26px 0 60px;
+         font-family:"JetBrains Mono",monospace;font-size:.78rem;color:var(--faded)}
+  footer .sheet{display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px}
+
+  @media(max-width:680px){
+    .plans{grid-template-columns:1fr}
+    .ledger li{grid-template-columns:1fr;gap:2px}
+    .step{grid-template-columns:40px 1fr}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="sheet mast">
+    <div class="brand">
+      <div class="wordmark">WARDLIGHT<span>://</span></div>
+      <div class="descriptor">Job posting verification</div>
+    </div>
+    <nav>
+      <a href="#method">Method</a><a href="#pricing">Pricing</a><a href="#terms">Terms</a><a href="#privacy">Privacy</a>
+    </nav>
+  </div>
+</header>
+
+<main class="sheet">
+
+  <!-- EXHIBIT A — the claim -->
+  <section class="exhibit">
+    <span class="tab">EXHIBIT A — THE PROBLEM</span>
+    <h1>Some job postings are never meant to be filled.</h1>
+    <p class="lede">Independent estimates cited by state regulators put ghost listings at <em>one-fifth to one-third</em> of online job postings. They waste your applications, your evenings, and your confidence — and from a single glance, they look exactly like real jobs. The tell isn't in the posting. <em>It's in the posting's behavior over time.</em></p>
+
+    <div class="dossier" aria-label="Example evidence dossier for a job posting">
+      <div class="dossier-head">
+        <span>DOSSIER · "Security Analyst" — [company withheld]</span>
+        <span>OBSERVED DAILY</span>
+      </div>
+      <ul class="ledger">
+        <li><span class="d">JUN 02</span><span>First observed. Posting ID #8841. Claims "posted today." Recorded.</span></li>
+        <li><span class="d">JUL 01</span><span>Day 30. Still live. No salary added. Description unchanged.</span></li>
+        <li><span class="d">JUL 18</span><span class="flag">Posting vanished. Reappeared as ID #9127 — identical description, new date.</span></li>
+        <li><span class="d">AUG 05</span><span class="flag">Claims "posted 2 days ago." Our diary says day 64. Contradicted.</span></li>
+      </ul>
+      <span class="stamp">VERDICT: GHOST</span>
+    </div>
+    <p class="dossier-note">Every Wardlight verdict ships with its evidence trail — dated, documented, auditable.</p>
+  </section>
+
+  <!-- EXHIBIT B — method -->
+  <section class="exhibit" id="method">
+    <span class="tab">EXHIBIT B — THE METHOD</span>
+    <h2>Ghosts can't survive a diary.</h2>
+    <div class="steps">
+      <div class="step">
+        <div><h3>Observe daily</h3>
+        <p>We watch postings across job boards every day and record what we see — an independent timestamped diary no employer or platform can edit.</p></div>
+      </div>
+      <div class="step">
+        <div><h3>Detect behavior</h3>
+        <p>Repost cycles under new IDs. "Posted" dates younger than our own first sighting. Listings open far past normal hiring timelines. Scam signatures — fee requests, off-platform interviews, lookalike domains. Documented rules, no vibes.</p></div>
+      </div>
+      <div class="step">
+        <div><h3>Verdict, with receipts</h3>
+        <p>Each posting gets a score and a plain-English evidence trail. Verdicts describe posting behavior — patterns, not accusations — so you can judge the evidence yourself.</p></div>
+      </div>
+    </div>
+
+    <div class="pledge">
+      <strong>Scam warnings are free. Forever.</strong>
+      Verdicts that protect you from identity theft and fee fraud will never sit behind a paywall — at any tier, under any future pricing. That's a commitment, not a promo.
+    </div>
+  </section>
+
+  <!-- EXHIBIT C — pricing -->
+  <section class="exhibit" id="pricing">
+    <span class="tab">EXHIBIT C — PRICING</span>
+    <h2>The haystack costs $39.99 a month. Knowing which straws are real costs $9.</h2>
+    <div class="plans">
+      <div class="plan">
+        <h3>FREE</h3>
+        <div class="price">$0</div>
+        <ul>
+          <li>30 posting checks per day</li>
+          <li class="free-line">Scam &amp; lookalike verdicts — always free</li>
+          <li>Current verdict + reasons for any posting</li>
+        </ul>
+      </div>
+      <div class="plan pro">
+        <h3>PRO</h3>
+        <div class="price">$9<small>/month · or $79/year</small></div>
+        <ul>
+          <li>Unlimited checks</li>
+          <li>Watchtower: monitor your saved postings &amp; companies, with alerts on reposts, refreshed dates, and verdict changes</li>
+          <li>Full evidence history &amp; event log</li>
+          <li>Bulk checks</li>
+        </ul>
+        <div class="founding">FOUNDING PRICE — LOCKED FOR LIFE FOR EARLY SUBSCRIBERS</div>
+      </div>
+    </div>
+    <p class="grad"><b>The graduation clause.</b> Cancel anytime, effective immediately. Got hired mid-cycle? Tell us — we'll refund your unused time and congratulate you. Wardlight succeeds when you stop needing it.</p>
+  </section>
+
+  <!-- EXHIBIT D — early access -->
+  <section class="exhibit" id="early">
+    <div class="early">
+      <h2>The pipeline is live. The doors open soon.</h2>
+      <p>Wardlight's collectors are already observing postings daily and building the evidence base. The web app is in final build. Founding-list members get first access and the locked founding price.</p>
+      <p style="margin-top:14px;font-family:'Fraunces',serif;font-size:1.15rem;color:#F0E6BE">The light stays on. The ghosts don't.</p>
+      <a href="mailto:[YOUR-SUPPORT-EMAIL]?subject=Wardlight%20founding%20list">Join the founding list →</a>
+    </div>
+  </section>
+
+  <!-- EXHIBIT E — terms -->
+  <section class="exhibit legal" id="terms">
+    <span class="tab">EXHIBIT E — TERMS OF SERVICE</span>
+    <p class="updated">Last updated: August 6, 2026</p>
+
+    <h3>1. What Wardlight is</h3>
+    <p>Wardlight analyzes publicly available job postings and related metadata over time and produces risk assessments ("verdicts") about posting behavior — such as reposting cycles, refreshed posting dates, staleness, and patterns associated with fraudulent listings. By using Wardlight you agree to these terms.</p>
+
+    <h3>2. What verdicts are — and are not</h3>
+    <p>Verdicts are probabilistic assessments of observed posting behavior, generated by documented rules applied to data we or our users observed. They are opinions based on evidence trails, not statements of fact about any employer's intent, character, or lawfulness. A "ghost" or "scam" verdict means the posting's observed behavior matches patterns associated with those categories — it is not an accusation that a named company has committed fraud or any unlawful act. Postings change; data can be incomplete; verdicts can be wrong. Always exercise your own judgment.</p>
+
+    <h3>3. No guarantees</h3>
+    <p>Wardlight is provided "as is." We do not guarantee the accuracy, completeness, or timeliness of any verdict, and we do not guarantee any job-search outcome. Wardlight is not legal, financial, or career advice.</p>
+
+    <h3>4. Your account and acceptable use</h3>
+    <p>You are responsible for your account and for keeping credentials secure. You agree not to: abuse or circumvent rate limits; scrape, resell, or republish Wardlight data at scale without written permission; submit content you have no right to submit; use the service to harass any person or employer; or attempt to compromise the service. Free usage is subject to per-IP daily limits. We may suspend accounts that violate these terms.</p>
+
+    <h3>5. Subscriptions, billing, and the graduation clause</h3>
+    <p>Paid subscriptions are sold through our merchant of record, Polar, which is the seller of record for the transaction and processes all payments; Wardlight never receives your card details. Subscriptions renew until cancelled. You may cancel at any time, effective immediately. Graduation clause: if you cancel because you accepted a job, contact support and we will refund the unused portion of your current billing period.</p>
+
+    <h3>6. Intellectual property</h3>
+    <p>Wardlight's software, rules, scores, and content are ours or our licensors'. Job postings analyzed by the service belong to their respective owners and are processed for analysis under applicable law.</p>
+
+    <h3>7. Limitation of liability</h3>
+    <p>To the maximum extent permitted by law, Wardlight and its operator are not liable for indirect, incidental, special, consequential, or punitive damages, or for lost profits, arising from use of the service. Our total liability for any claim is limited to the amounts you paid us in the twelve months before the claim.</p>
+
+    <h3>8. Changes and termination</h3>
+    <p>We may update these terms; material changes will be posted with a new "last updated" date, and continued use constitutes acceptance. We may discontinue the service or any feature with reasonable notice. The scam-verdict layer remains free while the service operates.</p>
+
+    <h3>9. Governing law and contact</h3>
+    <p>These terms are governed by the laws of the Commonwealth of Pennsylvania, USA, without regard to conflict-of-law rules. Questions and graduation-clause requests: [YOUR-SUPPORT-EMAIL].</p>
+  </section>
+
+  <!-- EXHIBIT F — privacy -->
+  <section class="exhibit legal" id="privacy">
+    <span class="tab">EXHIBIT F — PRIVACY POLICY</span>
+    <p class="updated">Last updated: August 6, 2026</p>
+
+    <h3>The short version</h3>
+    <p>We collect as little as possible, we never see your card details, and we do not sell your data. Wardlight analyzes job postings, not job seekers.</p>
+
+    <h3>What we collect</h3>
+    <ul>
+      <li><b>Submitted content:</b> job posting URLs and text you paste for analysis. These become part of our analysis corpus (postings are public-facing employer content, not your personal data).</li>
+      <li><b>Account data (if you register):</b> email address, hashed password or sign-in identity, plan tier, and your saved watch items.</li>
+      <li><b>Payment data:</b> handled entirely by our merchant of record, Polar, which is the seller of record. We receive subscription status — never your card number or bank details.</li>
+      <li><b>Usage and technical data:</b> IP address (used to enforce free-tier daily limits and prevent abuse), timestamps, and basic request logs, retained for a limited period for security and debugging.</li>
+      <li><b>Cookies:</b> the minimum needed for sign-in sessions. No third-party advertising trackers.</li>
+    </ul>
+
+    <h3>What we do with it</h3>
+    <p>Provide and improve the service; enforce rate limits and prevent abuse; send transactional email (receipts via Polar, watch alerts you asked for); and publish aggregate, anonymized statistics about posting behavior. Aggregates never identify users.</p>
+
+    <h3>What we never do</h3>
+    <p>Sell or rent your personal data; share it with advertisers; use your identity in published statistics; or paywall safety-critical scam warnings.</p>
+
+    <h3>Your choices and rights</h3>
+    <p>You can request export or deletion of your account data at any time by emailing [YOUR-SUPPORT-EMAIL]. Unsubscribing from alert emails is one click. Depending on where you live (e.g., EU/UK, California), you may have additional statutory rights to access, correct, or delete personal data — email us and we will honor them.</p>
+
+    <h3>Data security</h3>
+    <p>Data is stored with reputable cloud providers, encrypted in transit, access-limited, and minimized by design. No system is perfectly secure; we will notify affected users of any breach as required by law.</p>
+
+    <h3>Children</h3>
+    <p>Wardlight is not directed at children under 16 and we do not knowingly collect their data.</p>
+  </section>
+
+</main>
+
+<footer>
+  <div class="sheet">
+    <span>© 2026 WARDLIGHT</span>
+    <span>WARDLIGHT.APP · EVIDENCE OVER VIBES</span>
+    <span><a href="mailto:[YOUR-SUPPORT-EMAIL]">[YOUR-SUPPORT-EMAIL]</a></span>
+  </div>
+</footer>
+
+</body>
+</html>
