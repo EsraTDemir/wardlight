@@ -7,11 +7,9 @@ Cloudflare Worker backed by D1.
 ## Local setup
 
 1. Run `npm install`.
-2. Create a local D1 database and replace the placeholder `database_id` in
-   `wrangler.jsonc` with its D1 ID.
-3. Apply the migration with `npx wrangler d1 migrations apply wardlight --local`.
-4. Create `.dev.vars` with `WARDLIGHT_INGEST_SIGNING_SECRET=<local secret>`.
-5. Run `npm run dev`.
+2. Apply the local migration with `npx wrangler d1 migrations apply wardlight --local`.
+3. Create `.dev.vars` with `WARDLIGHT_INGEST_SIGNING_SECRET=<local secret>`.
+4. Run `npm run dev`.
 
 ## Ingestion
 
