@@ -1,5 +1,5 @@
 import { sha256Hex, verifyHmacSignature } from "./auth";
-import { defensiveHeaders, error, json } from "./http";
+import { defensiveHeaders, error, json, withDefensiveHeaders } from "./http";
 import { ghostWatchIngestionSchema, type GhostWatchIngestion } from "./ingestion-schema";
 import type { Env } from "./types";
 
@@ -22,28 +22,28 @@ interface PublicSummary {
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
+    let response: Response;
 
     if (url.pathname === "/healthz") {
-      return json({ status: "ok" });
-    }
-
-    if (url.pathname === PUBLIC_SUMMARY_PATH) {
+      response = json({ status: "ok" });
+    } else if (url.pathname === PUBLIC_SUMMARY_PATH) {
       if (request.method === "OPTIONS") {
-        return publicSummaryPreflight(request);
+        response = publicSummaryPreflight(request);
+      } else if (request.method === "GET") {
+        response = await getPublicSummary(request, env);
+      } else {
+        response = await env.ASSETS.fetch(request);
       }
-      if (request.method === "GET") {
-        return getPublicSummary(request, env);
-      }
-    }
-
-    if (
+    } else if (
       url.pathname === "/api/v1/ingestions/ghostwatch" &&
       request.method === "POST"
     ) {
-      return ingestGhostWatch(request, env);
+      response = await ingestGhostWatch(request, env);
+    } else {
+      response = await env.ASSETS.fetch(request);
     }
 
-    return env.ASSETS.fetch(request);
+    return withDefensiveHeaders(response);
   },
 } satisfies ExportedHandler<Env>;
 

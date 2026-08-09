@@ -40,7 +40,23 @@ const payload = {
   ],
 };
 
-function fakeEnvironment(): {
+const defensiveHeaderValues = {
+  "content-security-policy":
+    "default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+  "permissions-policy": "camera=(), geolocation=(), microphone=(), payment=()",
+  "referrer-policy": "no-referrer",
+  "strict-transport-security": "max-age=31536000; includeSubDomains",
+  "x-content-type-options": "nosniff",
+  "x-frame-options": "DENY",
+} as const;
+
+function expectDefensiveHeaders(response: Response): void {
+  for (const [name, value] of Object.entries(defensiveHeaderValues)) {
+    expect(response.headers.get(name)).toBe(value);
+  }
+}
+
+function fakeEnvironment(assetResponse?: Response): {
   env: Env;
   statements: D1PreparedStatement[];
 } {
@@ -59,7 +75,10 @@ function fakeEnvironment(): {
 
   return {
     env: {
-      ASSETS: { fetch: async () => new Response("Not Found", { status: 404 }) },
+      ASSETS: {
+        fetch: async () =>
+          assetResponse ?? new Response("Not Found", { status: 404 }),
+      },
       WARDLIGHT_DB: database,
       WARDLIGHT_INGEST_SIGNING_SECRET: secret,
     },
@@ -158,6 +177,7 @@ describe("GhostWatch ingestion endpoint", () => {
     const response = await worker.fetch(await signedRequest(payload), env);
 
     expect(response.status).toBe(202);
+    expectDefensiveHeaders(response);
     await expect(response.json()).resolves.toEqual({
       event_id: payload.run.event_id,
       run_id: "123",
@@ -176,6 +196,7 @@ describe("GhostWatch ingestion endpoint", () => {
     );
 
     expect(response.status).toBe(401);
+    expectDefensiveHeaders(response);
     expect(statements).toHaveLength(0);
   });
 
@@ -206,16 +227,14 @@ describe("GhostWatch ingestion endpoint", () => {
       );
 
       expect(response.status).toBe(200);
+      expectDefensiveHeaders(response);
       expect(response.headers.get("access-control-allow-origin")).toBe(
         "https://wardlight.app",
       );
-      expect(response.headers.get("content-security-policy")).toBe(
-        "default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+      expect(response.headers.get("cache-control")).toBe("public, max-age=300");
+      expect(response.headers.get("content-type")).toBe(
+        "application/json; charset=utf-8",
       );
-      expect(response.headers.get("strict-transport-security")).toBe(
-        "max-age=31536000; includeSubDomains",
-      );
-      expect(response.headers.get("x-content-type-options")).toBe("nosniff");
       await expect(response.json()).resolves.toEqual({
         source: "ghostwatch",
         tracked_postings: 82,
@@ -240,12 +259,60 @@ describe("GhostWatch ingestion endpoint", () => {
       );
 
       expect(response.status).toBe(204);
+      expectDefensiveHeaders(response);
       expect(response.headers.get("access-control-allow-origin")).toBeNull();
       expect(response.headers.get("access-control-allow-methods")).toBe(
         "GET, OPTIONS",
       );
-      expect(response.headers.get("referrer-policy")).toBe("no-referrer");
-      expect(response.headers.get("x-frame-options")).toBe("DENY");
+      expect(response.headers.get("content-type")).toBe(
+        "application/json; charset=utf-8",
+      );
+    });
+  });
+
+  describe("Worker response boundary", () => {
+    it("secures health responses while retaining JSON semantics", async () => {
+      const { env } = fakeEnvironment();
+
+      const response = await worker.fetch(
+        new Request("https://api.wardlight.app/healthz"),
+        env,
+      );
+
+      expect(response.status).toBe(200);
+      expectDefensiveHeaders(response);
+      expect(response.headers.get("content-type")).toBe(
+        "application/json; charset=utf-8",
+      );
+      expect(response.headers.get("cache-control")).toBe("no-store");
+      await expect(response.json()).resolves.toEqual({ status: "ok" });
+    });
+
+    it("secures asset fallback responses without changing their metadata", async () => {
+      const { env } = fakeEnvironment(
+        new Response("Missing asset", {
+          status: 404,
+          statusText: "Asset not found",
+          headers: {
+            "cache-control": "public, max-age=60",
+            "content-type": "text/plain; charset=utf-8",
+            etag: "\"asset-missing\"",
+          },
+        }),
+      );
+
+      const response = await worker.fetch(
+        new Request("https://api.wardlight.app/missing-asset"),
+        env,
+      );
+
+      expect(response.status).toBe(404);
+      expect(response.statusText).toBe("Asset not found");
+      expectDefensiveHeaders(response);
+      expect(response.headers.get("cache-control")).toBe("public, max-age=60");
+      expect(response.headers.get("content-type")).toBe("text/plain; charset=utf-8");
+      expect(response.headers.get("etag")).toBe("\"asset-missing\"");
+      await expect(response.text()).resolves.toBe("Missing asset");
     });
   });
 });
