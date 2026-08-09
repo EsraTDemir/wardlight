@@ -209,6 +209,13 @@ describe("GhostWatch ingestion endpoint", () => {
       expect(response.headers.get("access-control-allow-origin")).toBe(
         "https://wardlight.app",
       );
+      expect(response.headers.get("content-security-policy")).toBe(
+        "default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+      );
+      expect(response.headers.get("strict-transport-security")).toBe(
+        "max-age=31536000; includeSubDomains",
+      );
+      expect(response.headers.get("x-content-type-options")).toBe("nosniff");
       await expect(response.json()).resolves.toEqual({
         source: "ghostwatch",
         tracked_postings: 82,
@@ -237,6 +244,8 @@ describe("GhostWatch ingestion endpoint", () => {
       expect(response.headers.get("access-control-allow-methods")).toBe(
         "GET, OPTIONS",
       );
+      expect(response.headers.get("referrer-policy")).toBe("no-referrer");
+      expect(response.headers.get("x-frame-options")).toBe("DENY");
     });
   });
 });
