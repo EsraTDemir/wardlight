@@ -1,5 +1,5 @@
 import { sha256Hex, verifyHmacSignature } from "./auth";
-import { error, json } from "./http";
+import { defensiveHeaders, error, json } from "./http";
 import { ghostWatchIngestionSchema, type GhostWatchIngestion } from "./ingestion-schema";
 import type { Env } from "./types";
 
@@ -110,7 +110,7 @@ function publicSummaryPreflight(request: Request): Response {
 }
 
 function publicSummaryHeaders(request: Request): Headers {
-  const headers = new Headers({
+  const headers = defensiveHeaders({
     "cache-control": "public, max-age=300",
     "content-type": "application/json; charset=utf-8",
   });
