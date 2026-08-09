@@ -4,6 +4,14 @@ import worker from "../src/index";
 import type { Env } from "../src/types";
 
 const secret = "test-signing-secret";
+const securityHeaders = {
+  "strict-transport-security": "max-age=31536000; includeSubDomains",
+  "x-content-type-options": "nosniff",
+  "referrer-policy": "no-referrer",
+  "x-frame-options": "DENY",
+  "permissions-policy": "camera=(), geolocation=(), microphone=()",
+  "content-security-policy": "default-src 'none'; frame-ancestors 'none'; base-uri 'none'",
+};
 const payload = {
   schema_version: 1,
   source: "ghostwatch",
@@ -151,13 +159,32 @@ async function signedRequest(
   });
 }
 
+function expectSecurityHeaders(response: Response): void {
+  for (const [name, value] of Object.entries(securityHeaders)) {
+    expect(response.headers.get(name)).toBe(value);
+  }
+}
+
 describe("GhostWatch ingestion endpoint", () => {
+  it("adds security headers to the health check", async () => {
+    const { env } = fakeEnvironment();
+
+    const response = await worker.fetch(
+      new Request("https://api.wardlight.app/healthz"),
+      env,
+    );
+
+    expect(response.status).toBe(200);
+    expectSecurityHeaders(response);
+  });
+
   it("accepts a correctly signed valid payload and writes an atomic batch", async () => {
     const { env, statements } = fakeEnvironment();
 
     const response = await worker.fetch(await signedRequest(payload), env);
 
     expect(response.status).toBe(202);
+    expectSecurityHeaders(response);
     await expect(response.json()).resolves.toEqual({
       event_id: payload.run.event_id,
       run_id: "123",
@@ -176,6 +203,13 @@ describe("GhostWatch ingestion endpoint", () => {
     );
 
     expect(response.status).toBe(401);
+    expectSecurityHeaders(response);
+    await expect(response.json()).resolves.toEqual({
+      error: {
+        code: "authentication_failed",
+        message: "The request signature is invalid.",
+      },
+    });
     expect(statements).toHaveLength(0);
   });
 
@@ -206,6 +240,7 @@ describe("GhostWatch ingestion endpoint", () => {
       );
 
       expect(response.status).toBe(200);
+      expectSecurityHeaders(response);
       expect(response.headers.get("access-control-allow-origin")).toBe(
         "https://wardlight.app",
       );
@@ -233,6 +268,7 @@ describe("GhostWatch ingestion endpoint", () => {
       );
 
       expect(response.status).toBe(204);
+      expectSecurityHeaders(response);
       expect(response.headers.get("access-control-allow-origin")).toBeNull();
       expect(response.headers.get("access-control-allow-methods")).toBe(
         "GET, OPTIONS",
