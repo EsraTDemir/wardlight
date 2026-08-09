@@ -1,0 +1,19 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "wardlight",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-08",
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*", "/healthz"]
+  },
+  "d1_databases": [
+    {
+      "binding": "WARDLIGHT_DB",
+      "database_name": "wardlight",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations"
+    }
+  ]
+}
