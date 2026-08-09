@@ -37,9 +37,10 @@ this order:
 1. Authenticate the deployment machine with `npx wrangler login`.
 2. Create the production database with `npx wrangler d1 create wardlight`, then
    replace the placeholder `database_id` in `wrangler.jsonc` with the returned ID.
-3. In the Cloudflare dashboard, attach the deployed Worker to the custom domain
-   `api.wardlight.app`. The existing static asset binding continues to serve the
-   landing page; only `/api/*` and `/healthz` run Worker code.
+3. Retain the existing proxied DNS record and Worker route
+   `api.wardlight.app/* -> wardlight-api`. Do not add a Custom Domain binding:
+   deploying this configuration updates that existing Worker in place and keeps
+   the route attached.
 4. Apply the schema with
    `npx wrangler d1 migrations apply wardlight --remote --config wrangler.jsonc`.
 5. Generate a high-entropy shared secret, then set it in Cloudflare with
