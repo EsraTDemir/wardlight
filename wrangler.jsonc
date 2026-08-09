@@ -12,7 +12,7 @@
     {
       "binding": "WARDLIGHT_DB",
       "database_name": "wardlight",
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "74e52b5b-788c-4d55-88f6-b91031828ebe",
       "migrations_dir": "migrations"
     }
   ]
