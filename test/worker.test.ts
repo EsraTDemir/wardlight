@@ -90,6 +90,37 @@ function duplicateEnvironment(bodySha256: string): Env {
   };
 }
 
+function publicSummaryEnvironment(): Env {
+  const database = {
+    prepare: (statement: string) => ({
+      bind: () => ({
+        first: async () => {
+          if (statement.includes("tracked_postings")) {
+            return {
+              tracked_postings: 82,
+              last_observed_at: "2026-08-09",
+            };
+          }
+          return { latest_score_date: "2026-08-09" };
+        },
+        all: async () => ({
+          results: [
+            { verdict: "active", count: 69 },
+            { verdict: "watch", count: 12 },
+            { verdict: "likely_ghost", count: 1 },
+          ],
+        }),
+      }),
+    }),
+  } as unknown as D1Database;
+
+  return {
+    ASSETS: { fetch: async () => new Response("Not Found", { status: 404 }) },
+    WARDLIGHT_DB: database,
+    WARDLIGHT_INGEST_SIGNING_SECRET: secret,
+  };
+}
+
 async function signedRequest(
   body: unknown,
   suppliedSignature?: string,
@@ -162,6 +193,50 @@ describe("GhostWatch ingestion endpoint", () => {
       run_id: "123",
       accepted: 1,
       duplicate: true,
+    });
+  });
+
+  describe("public summary endpoint", () => {
+    it("returns aggregate live metrics with restricted CORS", async () => {
+      const response = await worker.fetch(
+        new Request("https://api.wardlight.app/api/v1/public/summary", {
+          headers: { origin: "https://wardlight.app" },
+        }),
+        publicSummaryEnvironment(),
+      );
+
+      expect(response.status).toBe(200);
+      expect(response.headers.get("access-control-allow-origin")).toBe(
+        "https://wardlight.app",
+      );
+      await expect(response.json()).resolves.toEqual({
+        source: "ghostwatch",
+        tracked_postings: 82,
+        last_observed_at: "2026-08-09",
+        latest_score_date: "2026-08-09",
+        verdicts: {
+          active: 69,
+          watch: 12,
+          likely_ghost: 1,
+          ghost: 0,
+        },
+      });
+    });
+
+    it("handles the browser preflight without enabling arbitrary origins", async () => {
+      const response = await worker.fetch(
+        new Request("https://api.wardlight.app/api/v1/public/summary", {
+          method: "OPTIONS",
+          headers: { origin: "https://untrusted.example" },
+        }),
+        publicSummaryEnvironment(),
+      );
+
+      expect(response.status).toBe(204);
+      expect(response.headers.get("access-control-allow-origin")).toBeNull();
+      expect(response.headers.get("access-control-allow-methods")).toBe(
+        "GET, OPTIONS",
+      );
     });
   });
 });

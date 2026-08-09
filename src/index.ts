@@ -5,6 +5,19 @@ import type { Env } from "./types";
 
 const MAX_BODY_BYTES = 1_048_576;
 const MAX_CLOCK_SKEW_MS = 5 * 60 * 1_000;
+const PUBLIC_SUMMARY_PATH = "/api/v1/public/summary";
+const PUBLIC_ORIGINS = new Set([
+  "https://wardlight.app",
+  "https://www.wardlight.app",
+]);
+
+interface PublicSummary {
+  source: "ghostwatch";
+  tracked_postings: number;
+  last_observed_at: string | null;
+  latest_score_date: string | null;
+  verdicts: Record<"active" | "watch" | "likely_ghost" | "ghost", number>;
+}
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -12,6 +25,15 @@ export default {
 
     if (url.pathname === "/healthz") {
       return json({ status: "ok" });
+    }
+
+    if (url.pathname === PUBLIC_SUMMARY_PATH) {
+      if (request.method === "OPTIONS") {
+        return publicSummaryPreflight(request);
+      }
+      if (request.method === "GET") {
+        return getPublicSummary(request, env);
+      }
     }
 
     if (
@@ -24,6 +46,83 @@ export default {
     return env.ASSETS.fetch(request);
   },
 } satisfies ExportedHandler<Env>;
+
+async function getPublicSummary(request: Request, env: Env): Promise<Response> {
+  const tracked = await env.WARDLIGHT_DB
+    .prepare(
+      `SELECT COUNT(*) AS tracked_postings, MAX(last_seen_at) AS last_observed_at
+       FROM postings
+       WHERE source = ?`,
+    )
+    .bind("ghostwatch")
+    .first<{ tracked_postings: number; last_observed_at: string | null }>();
+  const latest = await env.WARDLIGHT_DB
+    .prepare(
+      `SELECT MAX(scored_at) AS latest_score_date
+       FROM posting_score_snapshots
+       WHERE source = ?`,
+    )
+    .bind("ghostwatch")
+    .first<{ latest_score_date: string | null }>();
+  const scoreRows = await env.WARDLIGHT_DB
+    .prepare(
+      `SELECT verdict, COUNT(*) AS count
+       FROM posting_score_snapshots
+       WHERE source = ?
+         AND scored_at = (
+           SELECT MAX(scored_at)
+           FROM posting_score_snapshots
+           WHERE source = ?
+         )
+       GROUP BY verdict`,
+    )
+    .bind("ghostwatch", "ghostwatch")
+    .all<{ verdict: keyof PublicSummary["verdicts"]; count: number }>();
+  const verdicts: PublicSummary["verdicts"] = {
+    active: 0,
+    watch: 0,
+    likely_ghost: 0,
+    ghost: 0,
+  };
+
+  for (const row of scoreRows.results) {
+    verdicts[row.verdict] = row.count;
+  }
+
+  const body: PublicSummary = {
+    source: "ghostwatch",
+    tracked_postings: tracked?.tracked_postings ?? 0,
+    last_observed_at: tracked?.last_observed_at ?? null,
+    latest_score_date: latest?.latest_score_date ?? null,
+    verdicts,
+  };
+
+  return new Response(JSON.stringify(body), {
+    headers: publicSummaryHeaders(request),
+  });
+}
+
+function publicSummaryPreflight(request: Request): Response {
+  const headers = publicSummaryHeaders(request);
+  headers.set("access-control-allow-methods", "GET, OPTIONS");
+  headers.set("access-control-allow-headers", "Content-Type");
+  return new Response(null, { status: 204, headers });
+}
+
+function publicSummaryHeaders(request: Request): Headers {
+  const headers = new Headers({
+    "cache-control": "public, max-age=300",
+    "content-type": "application/json; charset=utf-8",
+  });
+  const origin = request.headers.get("origin");
+
+  if (origin && PUBLIC_ORIGINS.has(origin)) {
+    headers.set("access-control-allow-origin", origin);
+    headers.set("vary", "Origin");
+  }
+
+  return headers;
+}
 
 async function ingestGhostWatch(request: Request, env: Env): Promise<Response> {
   if (!env.WARDLIGHT_INGEST_SIGNING_SECRET) {
