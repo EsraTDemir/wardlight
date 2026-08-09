@@ -24,6 +24,14 @@ export function defensiveHeaders(init?: HeadersInit): Headers {
   return headers;
 }
 
+export function withDefensiveHeaders(response: Response): Response {
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: defensiveHeaders(response.headers),
+  });
+}
+
 export function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
